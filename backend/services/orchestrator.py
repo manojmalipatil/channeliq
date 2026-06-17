@@ -1,5 +1,5 @@
 import asyncio
-from typing import Dict
+from typing import Dict, Set
 from pydantic import BaseModel
 import uuid
 from datetime import datetime, timezone
@@ -8,8 +8,16 @@ from services.context_store import get_context, save_context, find_customer_by_p
 from services.llm_engine import generate_response
 from services.kpi_tracker import parse_kpi_from_response, update_session_kpis
 
-# Global SSE Queue
-sse_queue = asyncio.Queue()
+# Global SSE Broadcaster
+class SSEManager:
+    def __init__(self):
+        self.clients: Set[asyncio.Queue] = set()
+    
+    async def broadcast(self, message: dict):
+        for q in list(self.clients):
+            await q.put(message)
+
+sse_manager = SSEManager()
 
 class OrchestratorResult(BaseModel):
     reply: str
@@ -61,8 +69,9 @@ async def process_event(event: IncomingMessage) -> OrchestratorResult:
     context.setdefault("unified_history", []).append(user_msg)
 
     # Note channel switch implicitly handled above and by history
-    raw_response = generate_response(context, event.message, event.channel)
-    reply_text, kpi = parse_kpi_from_response(raw_response)
+    # Pass image_data if it exists
+    raw_response = await asyncio.to_thread(generate_response, context, event.message, event.channel, event.image_data)
+    reply_text, kpi, sentiment = parse_kpi_from_response(raw_response)
 
     assistant_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
     assistant_timestamp = datetime.now(timezone.utc).isoformat() + "Z"
@@ -72,7 +81,8 @@ async def process_event(event: IncomingMessage) -> OrchestratorResult:
         "role": "assistant",
         "content": reply_text,
         "timestamp": assistant_timestamp,
-        "kpi": kpi
+        "kpi": kpi,
+        "sentiment": sentiment
     }
     context["unified_history"].append(assistant_msg)
     
@@ -83,12 +93,13 @@ async def process_event(event: IncomingMessage) -> OrchestratorResult:
     await save_context(context["customer_id"], context)
 
     # Publish SSE event
-    await sse_queue.put({
+    await sse_manager.broadcast({
         "type": "interaction",
         "customer_id": context["customer_id"],
         "customer_name": context["name"],
         "channel": event.channel,
         "kpi": kpi,
+        "sentiment": sentiment,
         "message_preview": reply_text[:80],
         "timestamp": assistant_timestamp
     })

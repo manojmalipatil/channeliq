@@ -18,3 +18,11 @@ async def get_customers():
         "last_seen": c.get("last_seen"),
         "last_channel": c.get("last_channel")
     } for c in customers]
+
+from services.llm_engine import generate_executive_report
+
+@router.get("/report")
+async def get_report():
+    stats = await get_global_stats()
+    report_text = generate_executive_report(stats)
+    return {"report": report_text}

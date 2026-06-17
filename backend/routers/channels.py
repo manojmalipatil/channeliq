@@ -22,6 +22,7 @@ class WebchatPayload(BaseModel):
     customer_id: str
     message: str
     timestamp: str
+    image_data: str | None = None
 
 class PushPayload(BaseModel):
     device_token: str
@@ -57,7 +58,8 @@ async def handle_webchat(payload: WebchatPayload):
         channel="webchat",
         message=payload.message,
         timestamp=payload.timestamp,
-        identifier=payload.customer_id
+        identifier=payload.customer_id,
+        image_data=payload.image_data
     )
     res = await process_event(event)
     return res

@@ -1,5 +1,5 @@
 export const triggerWhatsApp = async (index: number | null = null) => {
-    const url = process.env.NEXT_PUBLIC_SIMULATOR_URL || "http://localhost:8001";
+    const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     const res = await fetch(`${url}/simulate/whatsapp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -9,7 +9,7 @@ export const triggerWhatsApp = async (index: number | null = null) => {
 }
 
 export const triggerEmail = async (index: number | null = null) => {
-    const url = process.env.NEXT_PUBLIC_SIMULATOR_URL || "http://localhost:8001";
+    const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     const res = await fetch(`${url}/simulate/email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -19,13 +19,13 @@ export const triggerEmail = async (index: number | null = null) => {
 }
 
 export const triggerJourney = async () => {
-    const url = process.env.NEXT_PUBLIC_SIMULATOR_URL || "http://localhost:8001";
+    const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     const res = await fetch(`${url}/simulate/journey`, { method: "POST" });
     return res.json();
 }
 
 export const triggerBulk = async () => {
-    const url = process.env.NEXT_PUBLIC_SIMULATOR_URL || "http://localhost:8001";
+    const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     const res = await fetch(`${url}/simulate/bulk`, { method: "POST" });
     return res.json();
 }

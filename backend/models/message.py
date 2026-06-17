@@ -31,3 +31,4 @@ class IncomingMessage(BaseModel):
     timestamp: str
     identifier: str # phone, email, customer_id depending on channel
     name: Optional[str] = None # We might not have this for new customers
+    image_data: Optional[str] = None # Base64 encoded image

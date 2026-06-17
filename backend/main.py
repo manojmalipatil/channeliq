@@ -1,12 +1,12 @@
 import asyncio
 import json
 from datetime import datetime, timezone
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
-from routers import channels, context, dashboard, kpi
-from services.orchestrator import sse_queue
+from routers import channels, context, dashboard, kpi, simulator
+from services.orchestrator import sse_manager
 from services.context_store import save_context, get_context
 
 app = FastAPI(title="ChannelIQ Backend")
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(channels.router)
 app.include_router(context.router)
 app.include_router(dashboard.router)
+app.include_router(simulator.router)
 
 async def seed_data():
     # Seed Priya Mehta
@@ -118,14 +119,28 @@ async def startup_event():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "redis": "connected"}
+    try:
+        from services.context_store import redis_client
+        await redis_client.ping()
+        return {"status": "ok", "redis": "connected"}
+    except Exception as e:
+        return {"status": "error", "redis": str(e)}
 
 @app.get("/events")
-async def sse_events():
+async def sse_events(request: Request):
     async def event_generator():
-        while True:
-            event_data = await sse_queue.get()
-            yield {
-                "data": json.dumps(event_data)
-            }
+        q = asyncio.Queue()
+        sse_manager.clients.add(q)
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                event_data = await q.get()
+                yield {
+                    "data": json.dumps(event_data)
+                }
+        except asyncio.CancelledError:
+            pass
+        finally:
+            sse_manager.clients.remove(q)
     return EventSourceResponse(event_generator())
